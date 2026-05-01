@@ -1,55 +1,53 @@
-"""
-utils/embeds.py — Embed factory for 07Dipper / Jiro
-All embeds share the same footer and color scheme from BOT_CONFIG.
-"""
 
+Action: file_editor create /app/jiro/utils/embeds.py --file-text "\"\"\"Standard Jiro embed factory.\"\"\"
+from __future__ import annotations
+from datetime import datetime, timezone
 import discord
-from utils.config import BOT_CONFIG, icon, color as cfg_color
+from .config import COLORS, BRAND_FOOTER, COLOR_PRIMARY
 
 
-def _base(e: discord.Embed) -> discord.Embed:
-    """Apply shared footer and optional thumbnail to any embed."""
-    e.set_footer(text=BOT_CONFIG["footer"])
-    if BOT_CONFIG.get("thumbnail_url"):
-        e.set_thumbnail(url=BOT_CONFIG["thumbnail_url"])
+def embed(title: str | None = None,
+          description: str | None = None,
+          *,
+          color: str | int = \"primary\",
+          url: str | None = None,
+          footer: str | None = BRAND_FOOTER,
+          footer_icon: str | None = None,
+          author: str | None = None,
+          author_icon: str | None = None,
+          thumbnail: str | None = None,
+          image: str | None = None,
+          timestamp: bool = True) -> discord.Embed:
+    \"\"\"Build a Jiro-branded embed.\"\"\"
+    if isinstance(color, str):
+        col = COLORS.get(color, COLOR_PRIMARY)
+    else:
+        col = int(color)
+
+    e = discord.Embed(
+        title=title or discord.Embed.Empty if hasattr(discord.Embed, \"Empty\") else title,
+        description=description,
+        color=col,
+        url=url,
+    )
+    if timestamp:
+        e.timestamp = datetime.now(timezone.utc)
+    if footer:
+        e.set_footer(text=footer, icon_url=footer_icon)
+    if author:
+        e.set_author(name=author, icon_url=author_icon)
+    if thumbnail:
+        e.set_thumbnail(url=thumbnail)
+    if image:
+        e.set_image(url=image)
     return e
 
 
-def embed(title: str = "", description: str = None, color: str = "info") -> discord.Embed:
-    """
-    General-purpose embed factory.
-
-    color: "info" | "error" | "warn" | "success" | "mod" | "log"
-    """
-    e = discord.Embed(
-        title=title,
-        description=description,
-        color=cfg_color(color),
-    )
-    return _base(e)
+def error_embed(message: str, *, title: str = \"❌ Error\") -> discord.Embed:
+    return embed(title, message, color=\"error\")
 
 
-def mod_embed(
-    action: str,
-    target: discord.Member,
-    mod: discord.Member,
-    reason: str,
-    extra_fields: dict = None,
-    color: str = "mod",
-) -> discord.Embed:
-    """
-    Standardised moderation action embed.
-    Used by kick, ban, mute, warn, etc.
-    """
-    e = discord.Embed(
-        title=f"{icon('mod')} {action}",
-        color=cfg_color(color),
-    )
-    e.add_field(name=f"{icon('target')} Member",    value=f"{target.mention} (`{target.id}`)", inline=True)
-    e.add_field(name=f"{icon('moderator')} Mod",    value=mod.mention,                          inline=True)
-    e.add_field(name=f"{icon('reason')} Reason",    value=reason,                               inline=False)
-    if extra_fields:
-        for name, val in extra_fields.items():
-            e.add_field(name=name, value=val, inline=True)
-    e.set_thumbnail(url=target.display_avatar.url)
-    return _base(e)
+def success_embed(message: str, *, title: str = \"✅ Success\") -> discord.Embed:
+    return embed(title, message, color=\"success\")
+"
+Observation: Create successful: /app/jiro/utils/embeds.py_base(e)

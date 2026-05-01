@@ -1,44 +1,64 @@
-"""
-utils/config.py — Central configuration for 07Dipper / Jiro
-All icons, colors, and bot-wide settings live here.
-Change anything here and it updates everywhere automatically.
-"""
+Now create the utils & core files:
+Action: file_editor create /app/jiro/utils/config.py --file-text "\"\"\"Brand & icon constants for Jiro.\"\"\"
 
-import discord
-from discord.ext import commands
+BRAND_NAME   = \"Jiro\"
+BRAND_FOOTER = \"Jiro • powered by NixAi\"
 
-# ─────────────────────────────────────────────────────────────
-# BOT-WIDE SETTINGS
-# ─────────────────────────────────────────────────────────────
-BOT_CONFIG = {
-    # Bot identity
-    "name":          "Jiro",
-    "footer":        "Jiro • NixAI • 🔰𝘽𝙇𝙐𝙀𝙀𝙔🔰",
-    "thumbnail_url": None,  # Set to a URL to add a thumbnail to all embeds
+# Primary palette
+COLOR_PRIMARY = 0x7C4DFF   # violet accent
+COLOR_BASE    = 0x111214   # near-black base
 
-    # Embed colors (hex)
-    "color_info":    0x00BFFF,
-    "color_error":   0xFF4444,
-    "color_warn":    0xFFAA00,
-    "color_success": 0x00C853,
-    "color_mod":     0x5865F2,
-    "color_log":     0x7289DA,
+COLORS = {
+    \"default\": COLOR_BASE,
+    \"primary\": COLOR_PRIMARY,
+    \"info\":    COLOR_PRIMARY,
+    \"mod\":     COLOR_PRIMARY,
+    \"success\": 0x3BA55D,
+    \"warn\":    0xFAA61A,
+    \"warning\": 0xFAA61A,
+    \"error\":   0xED4245,
+    \"muted\":   0x747F8D,
+}
 
-    # ── Icon map ───────────────────────────────────────────────
-    # Change any value here to update every embed that uses that icon.
-    # These replace emojis throughout the bot.
-    "icons": {
-        # General
-        "ok":         "[OK]",
-        "error":      "[X]",
-        "warn":       "[WARN]",
-        "info":       "[INFO]",
-        "bot":        "[BOT]",
-        "help":       "[HELP]",
-        "settings":   "[CFG]",
-        "stats":      "[STATS]",
+# Compact unicode/emoji icons used across embeds
+_ICONS = {
+    \"ok\":      \"✅\",
+    \"error\":   \"❌\",
+    \"warn\":    \"⚠️\",
+    \"info\":    \"ℹ️\",
+    \"mod\":     \"🛡️\",
+    \"ban\":     \"🔨\",
+    \"kick\":    \"👢\",
+    \"mute\":    \"🔇\",
+    \"unmute\":  \"🔊\",
+    \"lock\":    \"🔒\",
+    \"unlock\":  \"🔓\",
+    \"purge\":   \"🧹\",
+    \"level\":   \"📈\",
+    \"xp\":      \"✨\",
+    \"ticket\":  \"🎫\",
+    \"star\":    \"⭐\",
+    \"gift\":    \"🎉\",
+    \"tag\":     \"🏷️\",
+    \"remind\":  \"⏰\",
+    \"role\":    \"🎭\",
+    \"user\":    \"👤\",
+    \"server\":  \"🏠\",
+    \"join\":    \"📥\",
+    \"leave\":   \"📤\",
+    \"edit\":    \"📝\",
+    \"delete\":  \"🗑️\",
+    \"voice\":   \"🔉\",
+    \"afk\":     \"💤\",
+    \"ai\":      \"🤖\",
+    \"bug\":     \"🐛\",
+    \"raid\":    \"🚨\",
+}
 
-        # AI / language
+def icon(name: str) -> str:
+    return _ICONS.get(name, \"\")
+"
+Observation: Create successful: /app/jiro/utils/config.py # AI / language
         "ai":         "[AI]",
         "summary":    "[TLDR]",
         "roast":      "[ROAST]",

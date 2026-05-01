@@ -4,6 +4,7 @@ from discord import app_commands
 from utils.embeds import embed
 from utils.config import icon, safe_defer, safe_send
 import logging
+import traceback
 
 log = logging.getLogger(__name__)
 
@@ -146,22 +147,35 @@ class AI(commands.Cog):
         try:
             system = await get_system_prompt(self.bot, guild_id)
             config = await self.bot.db.get_config(guild_id)
-            model  = config.get("ai_model") or self.bot.groq_model
+            
+            # Use getattr with fallback to avoid AttributeError if groq_model is missing
+            model = config.get("ai_model") or getattr(self.bot, "groq_model", "llama-3.3-70b-versatile")
 
             if image_urls:
                 # Vision path — build a multi-modal content list
                 session = await self.bot.get_session()
                 content = await _build_vision_content(session, prompt, image_urls)
-                result  = await self.bot.ask_groq_vision(content, system=system, model=model)
+                
+                if hasattr(self.bot, "ask_groq_vision"):
+                    result = await self.bot.ask_groq_vision(content, system=system, model=model)
+                else:
+                    log.error("[AI] bot.ask_groq_vision method is missing")
+                    return _AI_FALLBACK + " (Method missing: ask_groq_vision)"
             else:
-                result = await self.bot.ask_groq(prompt, system=system, model=model)
+                if hasattr(self.bot, "ask_groq"):
+                    result = await self.bot.ask_groq(prompt, system=system, model=model)
+                else:
+                    log.error("[AI] bot.ask_groq method is missing")
+                    return _AI_FALLBACK + " (Method missing: ask_groq)"
 
             if not result or not result.strip():
+                log.warning(f"[AI] Groq returned empty result for guild {guild_id}")
                 return _AI_FALLBACK
             return result
         except Exception as exc:
             log.error(f"[AI] _ai_reply failed for guild {guild_id}: {type(exc).__name__}: {exc}")
-            return _AI_FALLBACK
+            log.error(traceback.format_exc())
+            return _AI_FALLBACK + f" (Error: {type(exc).__name__})"
 
     def _disabled_embed(self) -> discord.Embed:
         return embed(
@@ -231,8 +245,7 @@ class AI(commands.Cog):
         await ctx.send(embed=e)
 
     @app_commands.command(name="summarize", description="Summarize text or an image URL")
-    async def summarize_slash(self, interaction: discord.Interaction, text: str = "",
-                              image_url: str = None):
+    async def summarize_slash(self, interaction: discord.Interaction, text: str = None, image_url: str = None):
         if not await self._ai_enabled(interaction.guild.id):
             return await safe_send(interaction, embed=self._disabled_embed(), ephemeral=True)
         if not text and not image_url:
@@ -463,42 +476,23 @@ class AI(commands.Cog):
             e = embed(f"{icon('model')} AI Model Updated", color="success")
             e.add_field(name="New Model", value=f"`{model_id.strip()}`", inline=False)
             e.set_footer(text="Make sure this model is available on your Groq account.")
-            await ctx.send(embed=e)
+            await ctx.send(e)
         except Exception as exc:
             log.error(f"[AI] setmodel DB error: {exc}")
             await ctx.send(embed=embed(
                 f"{icon('error')} Database Error",
                 "Could not save the model. Please try again.", color="error"))
 
-    @app_commands.command(name="setmodel", description="Set the Groq AI model for this server (Admin)")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def setmodel_slash(self, interaction: discord.Interaction, model_id: str):
-        try:
-            await self.bot.db.set_config(interaction.guild.id, "ai_model", model_id.strip())
-            e = embed(f"{icon('model')} AI Model Updated", color="success")
-            e.add_field(name="New Model", value=f"`{model_id.strip()}`", inline=False)
-            e.set_footer(text="Make sure this model is available on your Groq account.")
-            await interaction.response.send_message(embed=e)
-        except Exception as exc:
-            log.error(f"[AI] setmodel_slash error: {exc}")
-            await safe_send(interaction, embed=embed(
-                f"{icon('error')} Database Error",
-                "Could not save the model. Please try again.", color="error"), ephemeral=True)
-
-    # ── Set custom system prompt ───────────────────────────────────────────────
+    # ── Set prompt ────────────────────────────────────────────────────────────
 
     @commands.command(name="setprompt")
     @commands.has_permissions(administrator=True)
     async def setprompt(self, ctx: commands.Context, *, prompt: str):
-        """Set a custom AI system prompt for this server. ?setprompt <prompt>"""
-        if len(prompt) > 2000:
-            return await ctx.send(embed=embed(
-                f"{icon('error')} Prompt Too Long",
-                "The system prompt must be under 2000 characters.", color="error"))
+        """Set a custom AI system prompt for this server. ?setprompt <text>"""
         try:
-            await self.bot.db.set_config(ctx.guild.id, "ai_custom_prompt", prompt)
-            e = embed(f"{icon('ok')} Custom Prompt Set", color="success")
-            e.add_field(name="Preview",
+            await self.bot.db.set_config(ctx.guild.id, "ai_custom_prompt", prompt.strip())
+            e = embed(f"{icon('ok')} Custom Prompt Saved", color="success")
+            e.add_field(name="New Prompt",
                         value=prompt[:500] + ("…" if len(prompt) > 500 else ""),
                         inline=False)
             await ctx.send(embed=e)
@@ -530,12 +524,12 @@ class AI(commands.Cog):
         """Show the current AI model and status for this server. ?aimodel"""
         try:
             config  = await self.bot.db.get_config(ctx.guild.id)
-            model   = config.get("ai_model") or self.bot.groq_model
+            model   = config.get("ai_model") or getattr(self.bot, "groq_model", "llama-3.3-70b-versatile")
             enabled = self.bot.db._bool(config.get("ai_enabled"), True)
             custom  = bool(config.get("ai_custom_prompt"))
         except Exception as exc:
             log.warning(f"[AI] aimodel DB error: {exc}")
-            model, enabled, custom = self.bot.groq_model, True, False
+            model, enabled, custom = getattr(self.bot, "groq_model", "llama-3.3-70b-versatile"), True, False
 
         key_set = f"{icon('ok')} Set" if getattr(self.bot, "groq_key", None) else f"{icon('error')} Not set"
 
