@@ -99,7 +99,7 @@ DEFAULT_SYSTEM_PROMPT = (
     "and argue a debate side (!debate). You respond when mentioned directly in chat too.\n\n"
 
     "Keep answers concise and Discord-friendly. No huge markdown walls. "
-    "When roasting, keep it  —  genuinely hurtful. "
+    "When roasting, keep it fun — never genuinely hurtful. "
     "You are proud to be made by Blueey and powered by NixAI / CyanixAI."
 )
 
@@ -190,6 +190,40 @@ class AI(commands.Cog):
             _AI_FALLBACK,
             color="error")
 
+    # ── Mention listener ──────────────────────────────────────────────────────
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Respond when Jiro is @mentioned directly in chat."""
+        if message.author.bot:
+            return
+        if not message.guild:
+            return
+        if self.bot.user not in message.mentions:
+            return
+        if not await self._ai_enabled(message.guild.id):
+            return
+
+        # Strip the mention(s) from the message to get the actual question
+        question = message.content
+        for mention in (f"<@{self.bot.user.id}>", f"<@!{self.bot.user.id}>"):
+            question = question.replace(mention, "")
+        question = question.strip()
+
+        if not question:
+            question = "Hey Jiro! Say something cool."
+
+        image_urls = _attachment_image_urls(message)
+
+        async with message.channel.typing():
+            reply = await self._ai_reply(message.guild.id, question, image_urls or None)
+
+        e = embed(f"{icon('ai')} Jiro", color="info")
+        e.description = reply[:2000]
+        if image_urls:
+            e.set_footer(text=f"🖼️ {len(image_urls)} image(s) analysed")
+        await message.reply(embed=e, mention_author=False)
+
     # ── Ask ───────────────────────────────────────────────────────────────────
 
     @commands.command(name="ask")
@@ -209,7 +243,7 @@ class AI(commands.Cog):
 
     @app_commands.command(name="ask", description="Ask Jiro a question (optionally include an image URL)")
     async def ask_slash(self, interaction: discord.Interaction, question: str,
-                        image_url: str = None):
+                        image_url: str | None = None):
         if not await self._ai_enabled(interaction.guild.id):
             return await safe_send(interaction, embed=self._disabled_embed(), ephemeral=True)
         if not await safe_defer(interaction):
@@ -245,7 +279,7 @@ class AI(commands.Cog):
         await ctx.send(embed=e)
 
     @app_commands.command(name="summarize", description="Summarize text or an image URL")
-    async def summarize_slash(self, interaction: discord.Interaction, text: str = None, image_url: str = None):
+    async def summarize_slash(self, interaction: discord.Interaction, text: str | None = None, image_url: str | None = None):
         if not await self._ai_enabled(interaction.guild.id):
             return await safe_send(interaction, embed=self._disabled_embed(), ephemeral=True)
         if not text and not image_url:
@@ -476,7 +510,7 @@ class AI(commands.Cog):
             e = embed(f"{icon('model')} AI Model Updated", color="success")
             e.add_field(name="New Model", value=f"`{model_id.strip()}`", inline=False)
             e.set_footer(text="Make sure this model is available on your Groq account.")
-            await ctx.send(e)
+            await ctx.send(embed=e)
         except Exception as exc:
             log.error(f"[AI] setmodel DB error: {exc}")
             await ctx.send(embed=embed(
